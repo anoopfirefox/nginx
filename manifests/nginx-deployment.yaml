@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nginx-nfs
+  namespace: cep-project2
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: manual
+  persistentVolumeReclaimPolicy: Recycle
+  mountOptions:
+    - hard
+    - nfsvers=4.1
+  nfs:
+    path: /nfsdata
+    server: 10.0.0.6
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nginx-nfs
+  namespace: cep-project2
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-web
+  namespace: cep-project2
+spec:
+  selector:
+    matchLabels:
+      app: nginx-webapp
+  template:
+    metadata:
+      labels:
+        app: nginx-webapp
+    spec:
+      containers:
+      - name: nginx-webapp
+        image: nginx:latest
+        volumeMounts:
+        - mountPath: /var/www/html
+          name: nginx-data
+        ports:
+        - containerPort: 80
+      volumes:
+      - name: nginx-data
+        persistentVolumeClaim:
+          claimName: nginx-nfs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+  namespace: cep-project2
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx-webapp
+  type: NodePort
